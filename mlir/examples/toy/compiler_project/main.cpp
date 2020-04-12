@@ -16,6 +16,9 @@
 #include "mlir/Parser.h"
 #include "mlir/Dialect.h"
 #include "mlir/MLIRGen.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
@@ -33,11 +36,26 @@ void DumpMLIR(std::vector<const gen::Node*> & nodes) {
   mlir::registerDialect<mlir::StandardOpsDialect>();
 
   mlir::MLIRContext context;
-
   mlirgen::MLIRGen mlir_gen(context);
   mlir::OwningModuleRef module = mlir_gen.mlirGen(nodes);
-  if (!module) std::cout << "ERRRRRRR" << std::endl;
 
+    module->dump();
+
+
+  mlir::PassManager pm(&context);
+  // Apply any generic pass manager command line options and run the pipeline.
+  // applyPassManagerCLOptions(pm);
+
+  // Inline all functions into main and then delete them.
+  pm.addPass(mlir::createInlinerPass());
+
+  // Now that there is only one function, we can infer the shapes of each of
+  // the operations.
+  // mlir::OpPassManager &optPM = pm.nest<mlir::FuncOp>();
+  // optPM.addPass(mlir::toy::createShapeInferencePass());
+  // optPM.addPass(mlir::createCanonicalizerPass());
+  // optPM.addPass(mlir::createCSEPass());
+  pm.run(*module);
   module->dump();
 }
 
