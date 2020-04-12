@@ -43,6 +43,31 @@ mlir::Value LiteralExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   }
 }
 
+void ColumnIdExpr::Visit(std::ostream *os) const {
+  *os <<"ColumnID "<< GetColumnID();
+}
+
+mlir::Value ColumnIdExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
+  llvm::StringRef callee("getcolumn");
+  auto location = mlir_gen->Loc();
+
+  // Codegen the operands first.
+  SmallVector<mlir::Value, 2> operands;
+  auto mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(this->GetTableID());//mlir_gen->Builder()->getIntegerAttr(type, table_id_);
+  auto arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
+  operands.push_back(arg);
+
+  mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(this->GetColumnID());//mlir_gen->Builder()->getIntegerAttr(type, id);
+  arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
+  operands.push_back(arg);
+
+  auto op = mlir_gen->Builder()->create<mlir::CallOp>(location, callee, mlir_attr.getType(), operands);
+  return op.getResult(0);
+}
+
+
+
+
 mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   auto curr_block = mlir_gen->Builder()->getBlock();
   auto parent = curr_block->getParent();
@@ -99,6 +124,40 @@ mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
       mlir_gen->Builder()->create<mlir::CallOp>(location, callee, mlir_attr.getType(), operands);
     }
   }
+
+
+  {
+    auto curr_block = mlir_gen->Builder()->getBlock();
+    auto parent = curr_block->getParent();
+    auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
+
+    // Jump into this new block.
+    mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
+    mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
+
+    mlir_gen->Builder()->setInsertionPointToStart(block1);
+
+    for(auto filter_expression: filters_) {
+      auto expression_variable_mlir = filter_expression->Visit(mlir_gen);
+    }
+  }
+
+  {
+    auto curr_block = mlir_gen->Builder()->getBlock();
+    auto parent = curr_block->getParent();
+    auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
+
+    // Jump into this new block.
+    mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
+    mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
+
+    mlir_gen->Builder()->setInsertionPointToStart(block1);
+
+    for(auto projection_expression: projections_) {
+      auto expression_variable_mlir = projection_expression->Visit(mlir_gen);
+    }
+  }
+
 
   return nullptr;
 }
@@ -375,6 +434,12 @@ mlir::Value BinaryOp::Visit(mlirgen::MLIRGen *mlir_gen) const {
     case ExprType::FMul: {
       // Otherwise, this return operation has zero operands.
       return mlir_gen->Builder()->create<mlir::MulFOp>(mlir_gen->Loc(), lhs, rhs);
+    }
+    case ExprType::Lt: {
+      return mlir_gen->Builder()->create<CmpIOp>(mlir_gen->Loc(), CmpIPredicate::slt, lhs, rhs);  
+    }
+    case ExprType::Gt: {
+      return mlir_gen->Builder()->create<CmpIOp>(mlir_gen->Loc(), CmpIPredicate::sgt, lhs, rhs);  
     }
     default: {
       std::cout << "Unsupported Binary Op" << std::endl;

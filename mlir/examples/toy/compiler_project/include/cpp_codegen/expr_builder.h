@@ -48,11 +48,25 @@ class ExprBuilder {
   }
 
   /////////////////////////////////////////////
+  //// ColumnID Expression
+  ////////////////////////////////////////////
+
+  const Expr *ColumnId(uint64_t column_id, uint64_t table_id) {
+    return cg_->AddExpr(std::make_unique<ColumnIdExpr>(column_id, table_id));
+  }
+
+  /////////////////////////////////////////////
   //// Select
   ////////////////////////////////////////////
 
-  const Expr *Select() {
-    return cg_->AddExpr(std::make_unique<SelectExpr>());
+  const Expr *Select(std::vector<uint64_t> &&column_ids,
+    std::vector<const Expr*> &&projections,
+    std::vector<const Expr*> &&filters,
+    uint64_t table_id) {
+    return cg_->AddExpr(std::make_unique<SelectExpr>(std::move(column_ids),
+                                                    std::move(projections),
+                                                    std::move(filters),
+                                                    table_id));
   }
 
   //////////////////////////////////////////

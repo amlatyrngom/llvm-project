@@ -71,14 +71,30 @@ int main() {
   select_fn.AddField({T.GetType(gen::PrimType::I64), table_id_ident});
   select_fn.SetRetType(T.GetType(gen::PrimType::I64));
   // Gen Simple Select
-  auto sel = E.Select();
+  std::vector<uint64_t> select_column_ids{1,2};
+  auto col1 = E.ColumnId(1, 37);
+  auto col2 = E.ColumnId(2, 37);
+  auto col1_mul_col2= E.IMul(col1, col2);
+  auto col1_sum_col2= E.IAdd(col1, col2);
+
+  auto col1_less_col2= E.Lt(col1, col2);
+  auto col1_greater_col2= E.Gt(col1, col2);
+
+  std::vector<const gen::Expr *> select_projection_expressions{col1_mul_col2, col1_sum_col2};
+  std::vector<const gen::Expr *> select_filter_expressions{col1_less_col2, col1_greater_col2};
+
+
+  auto sel = E.Select(std::move(select_column_ids),
+           std::move(select_projection_expressions),
+           std::move(select_filter_expressions),
+           37);
   select_fn.Add(sel);
   select_fn.Return(E.IntLiteral(37));
 
   // Get Rate
   auto rate_sym = cg.GetSymbol("rate");
   auto rate = E.MakeExpr(rate_sym);
-  main_fn.Declare(rate_sym, E.FloatLiteral(37.73));
+  main_fn.Declare(rate_sym, E.FloatLiteral(37.77));
   main_fn.Return(E.IMul(rate, main_arg));
 
   auto main_node = main_fn.Finish();

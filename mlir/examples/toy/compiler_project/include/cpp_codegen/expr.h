@@ -51,7 +51,10 @@ enum class ExprType : int {
   ShrEqual, ShlEqual, BitAndEqual, BitOrEqual, BitXorEqual,
 
   // Identifiers & Literal
-  Ident, Int, Float, Bool, String, Char,
+  Ident, Int, Float, Bool, String, Char, 
+
+  // ColumnID Expression
+  ColumnId,
 
   // Select
   Select,
@@ -150,19 +153,46 @@ class LiteralExpr : public Expr {
   std::variant<std::string_view, int64_t, double, char, bool> val_{};
 };
 
+class ColumnIdExpr: public Expr {
+  public:
+  explicit ColumnIdExpr(uint64_t column_id, uint64_t table_id):
+  Expr(ExprType::ColumnId, {}),
+  column_id_(column_id),
+  table_id_(table_id) {}
+  virtual ~ColumnIdExpr() = default;
+  
+  uint64_t GetColumnID() const {return column_id_;}
+  uint64_t GetTableID() const {return table_id_;}
+
+
+  void Visit(std::ostream *os) const override;
+  virtual mlir::Value Visit(mlirgen::MLIRGen *mlir_gen) const override;
+
+  private:
+  uint64_t column_id_;
+  uint64_t table_id_;
+};
+
 
 class SelectExpr : public Expr {
  public:
   // Integer literal
-  SelectExpr() : Expr(ExprType::Select, {}) {}
+  SelectExpr(std::vector<uint64_t> &&column_ids,
+    std::vector<const Expr*> &&projections,
+    std::vector<const Expr*> &&filters,
+    uint64_t table_id) : Expr(ExprType::Select, {}),
+    column_ids_(std::move(column_ids)),
+    projections_(std::move(projections)),
+    filters_(std::move(filters)),
+    table_id_(table_id) {}
 
   void Visit(std::ostream *os) const override {};
   virtual mlir::Value Visit(mlirgen::MLIRGen *mlir_gen) const override;
 
  private:
-  std::vector<uint64_t> column_ids_{1, 2};
-  //std::vector<const Expr*> projections_;
-  //std::vector<const Expr*> filters_;
+  std::vector<uint64_t> column_ids_;
+  std::vector<const Expr*> projections_;
+  std::vector<const Expr*> filters_;
   uint64_t table_id_{37};
 };
 
