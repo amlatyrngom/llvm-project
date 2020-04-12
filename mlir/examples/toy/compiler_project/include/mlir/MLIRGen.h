@@ -41,10 +41,12 @@ public:
 
   /// Public API: convert the AST for a sqlir module (source file) to an MLIR
   /// Module operation.
-  mlir::ModuleOp mlirGen(const gen::Node* node) {
+  mlir::ModuleOp mlirGen(std::vector<const gen::Node*> &nodes) {
     theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
     
-    node->Visit(this);
+    for(auto &node : nodes) {
+      node->Visit(this);
+    }
 
     // Verify
     if (failed(mlir::verify(theModule))) {

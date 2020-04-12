@@ -27,7 +27,7 @@
 
 using namespace std;
 
-void DumpMLIR(const gen::Node* node) {
+void DumpMLIR(std::vector<const gen::Node*> & nodes) {
   // TODO(Create Dialect);
   mlir::registerDialect<mlir::sqlir::SqlIRDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
@@ -35,7 +35,7 @@ void DumpMLIR(const gen::Node* node) {
   mlir::MLIRContext context;
 
   mlirgen::MLIRGen mlir_gen(context);
-  mlir::OwningModuleRef module = mlir_gen.mlirGen(node);
+  mlir::OwningModuleRef module = mlir_gen.mlirGen(nodes);
   if (!module) std::cout << "ERRRRRRR" << std::endl;
 
   module->dump();
@@ -70,6 +70,21 @@ int main() {
   select_fn.SetName(cg.GetSymbol("Select"));
   select_fn.AddField({T.GetType(gen::PrimType::I64), table_id_ident});
   select_fn.SetRetType(T.GetType(gen::PrimType::I64));
+
+
+
+  auto table_id_ident_get_column = cg.GetSymbol("table_id_arg");
+  auto column_id_ident = cg.GetSymbol("column_id_arg");
+  auto column_id = E.MakeExpr(column_id_ident);
+    // Make the GetColumnId fn
+  gen::FunctionBuilder get_column(&cg);
+  get_column.SetName(cg.GetSymbol("getcolumn"));
+  get_column.AddField({T.GetType(gen::PrimType::I64), table_id_ident_get_column});
+  get_column.AddField({T.GetType(gen::PrimType::I64), column_id_ident});
+  get_column.SetRetType(T.GetType(gen::PrimType::I64));
+  get_column.Return(column_id);
+
+
   // Gen Simple Select
   std::vector<uint64_t> select_column_ids{1,2};
   auto col1 = E.ColumnId(1, 37);
@@ -99,21 +114,13 @@ int main() {
 
   auto main_node = main_fn.Finish();
   auto select_node = select_fn.Finish();
+  auto get_column_node = get_column.Finish();
   (void)main_node;
 
-  //DumpMLIR(main_node);
-  DumpMLIR(select_node);
+  std::vector<const gen::Node*> nodes;
+  nodes.emplace_back(get_column_node);
+  nodes.emplace_back(select_node);
 
-  // Finish main
-  file_builder.Add(main_fn.Finish());
-
-  // Finish file
-  auto file = file_builder.Finish();
-  file->Visit(&std::cout);
-  auto module = comp.Compile(file);
-  auto compiled_fn = module->GetFn();
-  assert(compiled_fn(73) == 37*73);
-  assert(compiled_fn(37) == 37*37);
-  assert(compiled_fn(1024) == 37*1024);
+  DumpMLIR(nodes);
   return 0;
 }
