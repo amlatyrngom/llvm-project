@@ -97,47 +97,17 @@ mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   }
 
   {
-    auto curr_block = mlir_gen->Builder()->getBlock();
-    auto parent = curr_block->getParent();
-    auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
-
-    // Jump into this new block.
-    mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
-    mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
-
-    mlir_gen->Builder()->setInsertionPointToStart(block1);
-
-    for(auto id: column_ids_) {
-      llvm::StringRef callee("getcolumn");
-      auto location = mlir_gen->Loc();
-
-      // Codegen the operands first.
-      SmallVector<mlir::Value, 2> operands;
-      auto mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(table_id_);//mlir_gen->Builder()->getIntegerAttr(type, table_id_);
-      auto arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
-      operands.push_back(arg);
-
-      mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(id);//mlir_gen->Builder()->getIntegerAttr(type, id);
-      arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
-      operands.push_back(arg);
-
-      mlir_gen->Builder()->create<mlir::CallOp>(location, callee, mlir_attr.getType(), operands);
-    }
-  }
-
-
-  {
-    auto curr_block = mlir_gen->Builder()->getBlock();
-    auto parent = curr_block->getParent();
-    auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
-
-    // Jump into this new block.
-    mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
-    mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
-
-    mlir_gen->Builder()->setInsertionPointToStart(block1);
-
     for(auto filter_expression: filters_) {
+      auto curr_block = mlir_gen->Builder()->getBlock();
+      auto parent = curr_block->getParent();
+      auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
+
+      // Jump into this new block.
+      mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
+      mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
+
+      mlir_gen->Builder()->setInsertionPointToStart(block1);
+
       auto expression_variable_mlir = filter_expression->Visit(mlir_gen);
     }
   }
