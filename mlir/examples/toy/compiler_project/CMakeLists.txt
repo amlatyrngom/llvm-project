@@ -15,7 +15,7 @@ add_toy_chapter(compiler_project
   ${ENTIER_SOURCES}
 
   DEPENDS
-  #CompilerProjectOpsIncGen
+  CompilerProjectOpsIncGen
   CompilerProjectConstantFoldingInterfaceIncGen
   )
 

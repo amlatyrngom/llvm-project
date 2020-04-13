@@ -5,5 +5,10 @@
 #include "mlir/IR/StandardTypes.h"
 
 namespace mlir::sqlir {
-  SqlIRDialect::SqlIRDialect(mlir::MLIRContext *ctx) : mlir::Dialect("sqlir", ctx) {}
+  SqlIRDialect::SqlIRDialect(mlir::MLIRContext *ctx) : mlir::Dialect("sqlir", ctx) {
+  	  addOperations<
+		#define GET_OP_LIST
+		#include "mlir/Ops.cpp.inc"
+      >();
+  }
 }

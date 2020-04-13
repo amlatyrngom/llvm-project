@@ -61,8 +61,8 @@ mlir::Value ColumnIdExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
   operands.push_back(arg);
 
-  auto op = mlir_gen->Builder()->create<mlir::CallOp>(location, callee, mlir_attr.getType(), operands);
-  return op.getResult(0);
+  auto op = mlir_gen->Builder()->create<mlir::sqlir::GetColumnOp>(location, mlir_attr.getType(), operands[0], operands[1]);
+  return op.getResult();
 }
 
 

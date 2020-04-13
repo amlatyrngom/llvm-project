@@ -15,5 +15,8 @@ namespace mlir {
       /// several utilities for casting between dialects.
       static llvm::StringRef getDialectNamespace() { return "sqlir"; }
     };
+
+    #define GET_OP_CLASSES
+	#include "mlir/Ops.h.inc"
   }
 }

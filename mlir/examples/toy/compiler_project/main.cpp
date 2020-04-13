@@ -136,7 +136,7 @@ int main() {
   (void)main_node;
 
   std::vector<const gen::Node*> nodes;
-  nodes.emplace_back(get_column_node);
+  // nodes.emplace_back(get_column_node);
   nodes.emplace_back(select_node);
 
   DumpMLIR(nodes);
