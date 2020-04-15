@@ -89,8 +89,8 @@ class ExprBuilder {
   }
 
   // Gen: fn(args...)
-  const Expr *Call(const Expr *fn, std::vector<const Expr *> &&args) {
-    return cg_->AddExpr(std::make_unique<CallOp>(fn, std::move(args)));
+  const Expr *Call(const Expr *fn, std::vector<const Expr *> &&args, const Type* ret_type = nullptr) {
+    return cg_->AddExpr(std::make_unique<CallOp>(fn, std::move(args), ret_type));
   }
 
   // Gen: fn<types...>(args...)

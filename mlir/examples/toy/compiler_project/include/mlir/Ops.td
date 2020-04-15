@@ -1,4 +1,4 @@
-//===- Ops.td - Toy dialect operation definitions ----------*- tablegen -*-===//
+//===- Ops.td - SQLIR dialect operation definitions ----------*- tablegen -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,7 +16,7 @@
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffects.td"
 
-// Provide a definition of the 'toy' dialect in the ODS framework so that we
+// Provide a definition of the 'SQLIR' dialect in the ODS framework so that we
 // can define our operations.
 def SqlIR_Dialect : Dialect {
   let name = "sqlir";
@@ -35,8 +35,8 @@ class SQLIR_Op<string mnemonic, list<OpTrait> traits = []> :
 // SQLIR Operations
 //===----------------------------------------------------------------------===//
 
-def GetColumnOp : SQLIR_Op<"GetColumn"> {
-  let summary = "print operation";
+def GetColumnOp : SQLIR_Op<"GetColumn", [NoSideEffect]> {
+  let summary = "getcolumn operation";
   let description = [{
     The "GetColumn" builtin operation prints a given input tableid and columnid, and produces
     a SignlessIntegerLike.
@@ -44,8 +44,48 @@ def GetColumnOp : SQLIR_Op<"GetColumn"> {
 
   // The print operation takes an input tensor to print.
   let arguments = (ins SignlessIntegerLike:$lhs, SignlessIntegerLike:$rhs);
-  let results = (outs SignlessIntegerLike);
+  let results = (outs SignlessIntegerLike:$res);
+
+  let assemblyFormat = "$lhs `,` $rhs attr-dict `:` functional-type(operands, results)";
 }
 
+def TableNextOp : SQLIR_Op<"TableNext", [NoSideEffect]> {
+  let summary = "hasnext operation";
+  let description = [{
+    The "TableNextOp" builtin op.
+  }];
+
+  // The print operation takes an input tensor to print.
+  let arguments = (ins SignlessIntegerLike:$input);
+  let results = (outs I1:$res);
+
+  let assemblyFormat = "$input attr-dict `:` functional-type(operands, results)";
+}
+
+def FillResultOp : SQLIR_Op<"FillResult"> {
+  let summary = "fill result operation";
+  let description = [{
+    The "fill result" builtin operation prints a given input tensor, and produces
+    no results.
+  }];
+
+  // The print operation takes an input tensor to print.
+  let arguments = (ins SignlessIntegerLike:$input);
+
+  let assemblyFormat = "$input attr-dict `:` type($input)";
+}
+
+def PrintOp : SQLIR_Op<"print"> {
+  let summary = "print operation";
+  let description = [{
+    The "print" builtin operation prints a given input tensor, and produces
+    no results.
+  }];
+
+  // The print operation takes an input tensor to print.
+  let arguments = (ins SignlessIntegerLike:$input);
+
+  let assemblyFormat = "$input attr-dict `:` type($input)";
+}
 
 #endif // SQLIR_OPS

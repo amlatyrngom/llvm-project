@@ -48,6 +48,12 @@ void DumpMLIR(std::vector<const gen::Node*> & nodes) {
 
   // Inline all functions into main and then delete them.
   pm.addPass(mlir::createInlinerPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createInlinerPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createLoopInvariantCodeMotionPass());
 
   // Now that there is only one function, we can infer the shapes of each of
   // the operations.
@@ -85,7 +91,8 @@ int main() {
 
   // Make the select fn
   gen::FunctionBuilder select_fn(&cg);
-  select_fn.SetName(cg.GetSymbol("Select"));
+  auto select_sym = cg.GetSymbol("Select");
+  select_fn.SetName(select_sym);
   select_fn.AddField({T.GetType(gen::PrimType::I64), table_id_ident});
   select_fn.SetRetType(T.GetType(gen::PrimType::I64));
 
@@ -109,12 +116,15 @@ int main() {
   auto col2 = E.ColumnId(2, 37);
   auto col1_mul_col2= E.IMul(col1, col2);
   auto col1_sum_col2= E.IAdd(col1, col2);
+  auto const_col =E.IMul(table_id, table_id);
+
 
   auto col1_less_col2= E.Lt(col1, col2);
   auto col1_greater_col2= E.Gt(col1, col2);
+  auto const_comp = E.Lt(E.IntLiteral(37), E.IntLiteral(73));
 
-  std::vector<const gen::Expr *> select_projection_expressions{col1_mul_col2, col1_sum_col2};
-  std::vector<const gen::Expr *> select_filter_expressions{col1_less_col2, col1_greater_col2};
+  std::vector<const gen::Expr *> select_projection_expressions{ const_col, col1_mul_col2};
+  std::vector<const gen::Expr *> select_filter_expressions{ col1_less_col2, col1_greater_col2 };
 
 
   auto sel = E.Select(std::move(select_column_ids),
@@ -122,13 +132,13 @@ int main() {
            std::move(select_filter_expressions),
            37);
   select_fn.Add(sel);
-  select_fn.Return(E.IntLiteral(37));
+  select_fn.Return(E.IntLiteral(10000));
 
   // Get Rate
   auto rate_sym = cg.GetSymbol("rate");
   auto rate = E.MakeExpr(rate_sym);
   main_fn.Declare(rate_sym, E.FloatLiteral(37.77));
-  main_fn.Return(E.IMul(rate, main_arg));
+  main_fn.Return(E.Call(E.MakeExpr(select_sym), {E.IntLiteral(37)}, T.GetType(gen::PrimType::I64)));
 
   auto main_node = main_fn.Finish();
   auto select_node = select_fn.Finish();
@@ -138,6 +148,7 @@ int main() {
   std::vector<const gen::Node*> nodes;
   // nodes.emplace_back(get_column_node);
   nodes.emplace_back(select_node);
+  nodes.emplace_back(main_node);
 
   DumpMLIR(nodes);
   return 0;

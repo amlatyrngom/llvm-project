@@ -11,4 +11,11 @@ namespace mlir::sqlir {
 		#include "mlir/Ops.cpp.inc"
       >();
   }
+
+  //===----------------------------------------------------------------------===//
+  // TableGen'd op method definitions
+  //===----------------------------------------------------------------------===//
+
+  #define GET_OP_CLASSES
+  #include "mlir/Ops.cpp.inc"
 }

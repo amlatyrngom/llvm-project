@@ -1,5 +1,6 @@
 #include "cpp_codegen/expr.h"
 #include <iostream>
+#include <sstream>
 #include "mlir/MLIRGen.h"
 
 using namespace mlir;
@@ -71,64 +72,63 @@ mlir::Value ColumnIdExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
 mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   auto curr_block = mlir_gen->Builder()->getBlock();
   auto parent = curr_block->getParent();
-  auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
-
+  auto top_block = mlir_gen->Builder()->createBlock(parent, parent->end());
+  auto exit_block = mlir_gen->Builder()->createBlock(parent, parent->end());
   // Jump into this new block.
   mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
-  mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
+  mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), top_block);
+  mlir_gen->Builder()->setInsertionPointToStart(top_block);
 
-  mlir_gen->Builder()->setInsertionPointToStart(block1);
-
-  for(auto id: column_ids_) {
-    llvm::StringRef callee("getcolumn");
-    auto location = mlir_gen->Loc();
-
-    // Codegen the operands first.
-    SmallVector<mlir::Value, 2> operands;
-    auto mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(table_id_);//mlir_gen->Builder()->getIntegerAttr(type, table_id_);
+  // Advance the table
+  mlir::Value has_next;
+  {
+    auto mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(table_id_);
     auto arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
-    operands.push_back(arg);
-
-    mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(id);//mlir_gen->Builder()->getIntegerAttr(type, id);
-    arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
-    operands.push_back(arg);
-
-    mlir_gen->Builder()->create<mlir::CallOp>(location, callee, mlir_attr.getType(), operands);
+    has_next = mlir_gen->Builder()->create<mlir::sqlir::TableNextOp>(mlir_gen->Loc(), mlir_gen->Builder()->getI1Type(), arg);
   }
 
+  // Filters
+  auto false_target = exit_block;
+  mlir::Value curr_jump_cond = has_next;
   {
     for(auto filter_expression: filters_) {
       auto curr_block = mlir_gen->Builder()->getBlock();
       auto parent = curr_block->getParent();
-      auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
+      auto new_filter_block = mlir_gen->Builder()->createBlock(exit_block);
 
       // Jump into this new block.
       mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
-      mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
+      mlir_gen->Builder()->create<mlir::CondBranchOp>(mlir_gen->Loc(), curr_jump_cond, new_filter_block, false_target);
 
-      mlir_gen->Builder()->setInsertionPointToStart(block1);
+      mlir_gen->Builder()->setInsertionPointToStart(new_filter_block);
 
       auto expression_variable_mlir = filter_expression->Visit(mlir_gen);
+      curr_jump_cond = expression_variable_mlir;
+      false_target = top_block;
     }
   }
 
+  // Projection
   {
     auto curr_block = mlir_gen->Builder()->getBlock();
     auto parent = curr_block->getParent();
-    auto block1 = mlir_gen->Builder()->createBlock(parent, parent->end());
+    auto project_block = mlir_gen->Builder()->createBlock(exit_block);
 
     // Jump into this new block.
     mlir_gen->Builder()->setInsertionPointToEnd(curr_block);
-    mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), block1);
+    mlir_gen->Builder()->create<mlir::CondBranchOp>(mlir_gen->Loc(), curr_jump_cond, project_block, false_target);
 
-    mlir_gen->Builder()->setInsertionPointToStart(block1);
+    mlir_gen->Builder()->setInsertionPointToStart(project_block);
 
     for(auto projection_expression: projections_) {
       auto expression_variable_mlir = projection_expression->Visit(mlir_gen);
+      mlir_gen->Builder()->create<mlir::sqlir::FillResultOp>(mlir_gen->Loc(), expression_variable_mlir);
     }
+    mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), top_block);
   }
 
-
+  // Exit
+  mlir_gen->Builder()->setInsertionPointToEnd(exit_block);
   return nullptr;
 }
 
@@ -210,6 +210,30 @@ void CallOp::Visit(std::ostream *os) const {
     }
   }
   *os << ")";
+}
+
+mlir::Value CallOp::Visit(mlirgen::MLIRGen *mlir_gen) const {
+  auto fn = Child(0);
+  // Print name into string
+  std::stringstream ss{};
+  fn->Visit(&ss);
+  std::string callee_name(ss.str());
+  llvm::StringRef callee(callee_name);
+  auto location = mlir_gen->Loc();
+  llvm::errs() << callee;
+
+  // Codegen the operands first.
+  SmallVector<mlir::Value, 2> operands;
+  auto num_children = NumChildren();
+  for (uint32_t i = 1; i < num_children; i++) {
+    auto child = Child(i);
+    auto arg = child->Visit(mlir_gen);
+    operands.push_back(arg);
+  }
+  llvm::errs() << callee << "  ASDA\n";
+  auto op = mlir_gen->Builder()->create<mlir::CallOp>(location, callee, ret_type_->Visit(mlir_gen), operands);
+  return op.getResult(0);
+  return nullptr;
 }
 
 
@@ -406,10 +430,10 @@ mlir::Value BinaryOp::Visit(mlirgen::MLIRGen *mlir_gen) const {
       return mlir_gen->Builder()->create<mlir::MulFOp>(mlir_gen->Loc(), lhs, rhs);
     }
     case ExprType::Lt: {
-      return mlir_gen->Builder()->create<CmpIOp>(mlir_gen->Loc(), CmpIPredicate::slt, lhs, rhs);  
+      return mlir_gen->Builder()->create<CmpIOp>(mlir_gen->Loc(), CmpIPredicate::slt, lhs, rhs);
     }
     case ExprType::Gt: {
-      return mlir_gen->Builder()->create<CmpIOp>(mlir_gen->Loc(), CmpIPredicate::sgt, lhs, rhs);  
+      return mlir_gen->Builder()->create<CmpIOp>(mlir_gen->Loc(), CmpIPredicate::sgt, lhs, rhs);
     }
     default: {
       std::cout << "Unsupported Binary Op" << std::endl;

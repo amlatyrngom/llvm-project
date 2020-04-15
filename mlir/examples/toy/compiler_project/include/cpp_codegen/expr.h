@@ -51,7 +51,7 @@ enum class ExprType : int {
   ShrEqual, ShlEqual, BitAndEqual, BitOrEqual, BitXorEqual,
 
   // Identifiers & Literal
-  Ident, Int, Float, Bool, String, Char, 
+  Ident, Int, Float, Bool, String, Char,
 
   // ColumnID Expression
   ColumnId,
@@ -160,7 +160,7 @@ class ColumnIdExpr: public Expr {
   column_id_(column_id),
   table_id_(table_id) {}
   virtual ~ColumnIdExpr() = default;
-  
+
   uint64_t GetColumnID() const {return column_id_;}
   uint64_t GetTableID() const {return table_id_;}
 
@@ -224,18 +224,22 @@ class MemberOp : public Expr {
 class CallOp : public Expr {
  public:
   // Constructor
-  CallOp(const Expr *fn, std::vector<const Expr *> &&args)
-      : Expr(ExprType::Call, AllChildren(fn, std::move(args))) {}
+  CallOp(const Expr *fn, std::vector<const Expr *> &&args, const Type* ret_type = nullptr)
+      : Expr(ExprType::Call, AllChildren(fn, std::move(args))), ret_type_(ret_type) {}
 
   virtual ~CallOp() = default;
 
   void Visit(std::ostream *os) const override;
+  virtual mlir::Value Visit(mlirgen::MLIRGen *mlir_gen) const override;
 
   // Make the vector of all children. The function is the first child.
   static std::vector<const Expr *> AllChildren(const Expr *fn, std::vector<const Expr *> &&args) {
     args.insert(args.begin(), fn);
     return std::move(args);
   }
+
+private:
+  const Type* ret_type_;
 };
 
 // Represents fn<types...>(args...)

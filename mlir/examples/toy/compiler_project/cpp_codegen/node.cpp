@@ -87,6 +87,7 @@ void Function::Visit(mlirgen::MLIRGen* mlir_gen) const {
 
 
   function.print(llvm::errs());
+  llvm::errs() << "\n";
 
   mlir_gen->Module()->push_back(function);
 }

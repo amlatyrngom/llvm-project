@@ -43,7 +43,7 @@ public:
   /// Module operation.
   mlir::ModuleOp mlirGen(std::vector<const gen::Node*> &nodes) {
     theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
-    
+
     for(auto &node : nodes) {
       node->Visit(this);
     }
