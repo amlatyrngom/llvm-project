@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <unordered_map>
+#include <map>
 #include "mlir/Pass/Pass.h"
 #include "mlir/Dialect.h"
 #include "mlir/Passes.h"
@@ -158,17 +159,45 @@ public:
     // Not a select function
     if (start_block == nullptr && join_block == nullptr) return;
     if(join_block != nullptr) {
-
+      int i = 0;
+      std::vector<Value> join_table_operands;
       // Do Join Reordering
-      
+      for (Operation &op : llvm::make_early_inc_range(*join_block)) {
+        if (isa<JoinOp>(op)) {
 
+          if(i==0) {
+            join_table_operands.push_back(op.getOperand(0));
+            join_table_operands.push_back(op.getOperand(1));
+          } else {
+            join_table_operands.push_back(op.getOperand(0));
+          }
+          i++;
+        }
+      }
 
+      std::map<int, Value> costs;
+      EstimateCosts(costs, join_table_operands);
+      join_table_operands.clear();
+      for(auto &it: costs) {
+        join_table_operands.push_back(it.second);
+      }
 
+      i = 0;
+      // Do Join Reordering
+      for (Operation &op : llvm::make_early_inc_range(*join_block)) {
+        if (isa<JoinOp>(op)) {
 
+          if(i==0) {
+            op.setOperand(0, join_table_operands[i]);
+            op.setOperand(1, join_table_operands[i+1]);
+            i+=2;
 
-
-
-
+          } else {
+            op.setOperand(0, join_table_operands[i]);
+            i++;
+          }
+        }
+      }
       return;
     }
     // Impossible filters
@@ -247,6 +276,12 @@ public:
       num_insts_++;
     });
     return 1.0 / num_insts_;
+  }
+
+  void EstimateCosts(std::map<int,Value> & costs, std::vector<Value> &values) {
+    for(auto value: values) {
+      costs.insert(std::make_pair(rand()%10000, value));
+    }
   }
 };
 } // end anonymous namespace
