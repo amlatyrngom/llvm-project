@@ -85,6 +85,7 @@ public:
     std::unordered_map<Block*, double> filter_ranks;
     Block* project_block = nullptr;
     Block* exit_block = nullptr;
+    Block* join_block = nullptr;
 
     // Gather function arguments.
     SmallPtrSet<Value, 8> args;
@@ -137,6 +138,9 @@ public:
         if (isa<TableNextOp>(op)) {
           start_block = &block;
         }
+        if (isa<JoinOp>(op)) {
+          join_block = &block;
+        }
         if (isa<FillResultOp>(op)) {
           project_block = &block;
         }
@@ -152,7 +156,21 @@ public:
     }
 
     // Not a select function
-    if (start_block == nullptr) return;
+    if (start_block == nullptr && join_block == nullptr) return;
+    if(join_block != nullptr) {
+
+      // Do Join Reordering
+      
+
+
+
+
+
+
+
+
+      return;
+    }
     // Impossible filters
     if (project_block == nullptr) {
       auto curr_term = pre_block->getTerminator();

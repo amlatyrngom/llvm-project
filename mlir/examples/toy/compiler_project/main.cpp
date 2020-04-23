@@ -91,6 +91,12 @@ int main() {
   select_fn.AddField({T.GetType(gen::PrimType::I64), table_id_ident});
   select_fn.SetRetType(T.GetType(gen::PrimType::I64));
 
+  // Make the join fn
+  gen::FunctionBuilder join_fn(&cg);
+  auto join_sym = cg.GetSymbol("Join");
+  join_fn.SetName(join_sym);
+  join_fn.SetRetType(T.GetType(gen::PrimType::I64));
+
 
 
   auto table_id_ident_get_column = cg.GetSymbol("table_id_arg");
@@ -113,7 +119,6 @@ int main() {
   auto col1_sum_col2= E.IAdd(col1, col2);
   auto const_col =E.IMul(table_id, table_id);
 
-
   auto col1_less_col2 = E.Lt(col1_sum_col2, col2);
   auto col1_greater_col2= E.Gt(col1, col2);
   auto const_comp = E.Gt(E.IntLiteral(37), E.IntLiteral(73));
@@ -129,6 +134,12 @@ int main() {
   select_fn.Add(sel);
   select_fn.Return(E.IntLiteral(10000));
 
+  // Create Join Expression
+  std::vector<uint64_t> join_table_ids{1,2,3};
+  auto join = E.Join(std::move(join_table_ids));
+  join_fn.Add(join);
+  join_fn.Return(E.IntLiteral(10000));
+
   // Get Rate
   auto rate_sym = cg.GetSymbol("rate");
   auto rate = E.MakeExpr(rate_sym);
@@ -137,12 +148,14 @@ int main() {
 
   auto main_node = main_fn.Finish();
   auto select_node = select_fn.Finish();
+  auto join_node = join_fn.Finish();
   auto get_column_node = get_column.Finish();
   (void)main_node;
 
   std::vector<const gen::Node*> nodes;
   // nodes.emplace_back(get_column_node);
   nodes.emplace_back(select_node);
+  nodes.emplace_back(join_node);
   nodes.emplace_back(main_node);
 
   DumpMLIR(nodes);
