@@ -57,7 +57,7 @@ enum class ExprType : int {
   ColumnId,
 
   // Select
-  Select, Join
+  Select, Join, FetchValue
 };
 
 // Generic expression
@@ -119,6 +119,28 @@ class IdentExpr : public Expr {
 
  private:
   Symbol symbol_;
+};
+
+// Fetch the value of the return of a select
+class FetchValueExpr : public Expr {
+ public:
+  // Constructor
+  explicit FetchValueExpr(Symbol symbol, uint64_t row_idx, uint64_t col_idx)
+      : Expr(ExprType::FetchValue, {}), symbol_(symbol), row_idx_{row_idx}, col_idx_{col_idx} {}
+
+  virtual ~FetchValueExpr() = default;
+
+
+  void Visit(std::ostream *os) const override {
+    *os << symbol_.ident_;
+  }
+
+  virtual mlir::Value Visit(mlirgen::MLIRGen *mlir_gen) const override;
+
+ private:
+  Symbol symbol_;
+  uint64_t row_idx_;
+  uint64_t col_idx_;
 };
 
 // Represents a literal

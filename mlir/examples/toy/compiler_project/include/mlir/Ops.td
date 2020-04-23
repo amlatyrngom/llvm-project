@@ -88,6 +88,18 @@ def NewTempTableOp : SQLIR_Op<"NewTempTable"> {
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+def FetchValueOp : SQLIR_Op<"FetchValue"> {
+  let summary = "fetch value operation";
+  let description = [{
+    The "FetchValueOp" builtin op.
+  }];
+
+  let arguments = (ins SignlessIntegerLike:$temp_id, SignlessIntegerLike: $row_idx, SignlessIntegerLike: $col_idx);
+  let results = (outs SignlessIntegerLike:$res);
+
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+}
+
 def FillResultOp : SQLIR_Op<"FillResult"> {
   let summary = "fill result operation";
   let description = [{

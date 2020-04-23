@@ -167,6 +167,7 @@ mlir::Value JoinExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
     temp_table_id = op.getResult();
   }
 
+  mlir_gen->Builder()->create<mlir::ReturnOp>(mlir_gen->Loc(), llvm::makeArrayRef(temp_table_id));
   return nullptr;
 }
 
@@ -180,6 +181,23 @@ mlir::Value IdentExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
       << std::string(symbol_.ident_) << "'";
   return nullptr;
 }
+
+mlir::Value FetchValueExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
+  if (auto temp_id = mlir_gen->SymTable()->lookup(symbol_.ident_)) {
+    auto i64_type = mlir_gen->Builder()->getIntegerType(64);
+    auto row_idx_attr = mlir_gen->Builder()->getIntegerAttr(i64_type, row_idx_);
+    auto col_idx_attr = mlir_gen->Builder()->getIntegerAttr(i64_type, row_idx_);
+    auto row_idx_arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), row_idx_attr.getType(), row_idx_attr);
+    auto col_idx_arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), col_idx_attr.getType(), col_idx_attr);
+
+    return mlir_gen->Builder()->create<mlir::sqlir::FetchValueOp>(mlir_gen->Loc(), i64_type, temp_id, row_idx_arg.getResult(), col_idx_arg.getResult());
+  }
+
+  emitError(mlir_gen->Loc(), "error: unknown variable '")
+      << std::string(symbol_.ident_) << "'";
+  return nullptr;
+}
+
 
 void AssignOp::Visit(std::ostream *os) const {
   // Gen member access

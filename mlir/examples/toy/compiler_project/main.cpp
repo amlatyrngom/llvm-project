@@ -121,7 +121,7 @@ int main() {
 
   auto col1_less_col2 = E.Lt(col1_sum_col2, col2);
   auto col1_greater_col2= E.Gt(col1, col2);
-  auto const_comp = E.Lt(E.IntLiteral(37), E.IntLiteral(73));
+  auto const_comp = E.Gt(E.IntLiteral(37), E.IntLiteral(73));
 
   std::vector<const gen::Expr *> select_projection_expressions{ const_col, col1_mul_col2};
   std::vector<const gen::Expr *> select_filter_expressions{ col1_less_col2, col1_greater_col2, const_comp };
@@ -138,13 +138,15 @@ int main() {
   std::vector<uint64_t> join_table_ids{1,2,3};
   auto join = E.Join(std::move(join_table_ids));
   join_fn.Add(join);
-  join_fn.Return(E.IntLiteral(10000));
 
   // Get Rate
   auto rate_sym = cg.GetSymbol("rate");
+  auto select_res_sym = cg.GetSymbol("select_res");
   auto rate = E.MakeExpr(rate_sym);
+  auto select_res = E.MakeExpr(select_res_sym);
   main_fn.Declare(rate_sym, E.FloatLiteral(37.77));
-  main_fn.Return(E.Call(E.MakeExpr(select_sym), {E.IntLiteral(37)}, T.GetType(gen::PrimType::I64)));
+  main_fn.Declare(select_res_sym, E.Call(E.MakeExpr(select_sym), {E.IntLiteral(37)}, T.GetType(gen::PrimType::I64)));
+  main_fn.Return(E.IMul(E.FetchValue(select_res_sym, 0, 0), main_arg));
 
   auto main_node = main_fn.Finish();
   auto select_node = select_fn.Finish();

@@ -78,6 +78,14 @@ class ExprBuilder {
   }
 
   //////////////////////////////////////////
+  //// FetchValue
+  /////////////////////////////////////////
+
+  const Expr* FetchValue(Symbol sym, uint64_t row_idx, uint64_t col_idx) {
+    return cg_->AddExpr(std::make_unique<FetchValueExpr>(sym, row_idx, col_idx));
+  }
+
+  //////////////////////////////////////////
   /// Object access & calls
   //////////////////////////////////////////
 
