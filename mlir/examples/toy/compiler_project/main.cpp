@@ -142,11 +142,14 @@ int main() {
   // Get Rate
   auto rate_sym = cg.GetSymbol("rate");
   auto select_res_sym = cg.GetSymbol("select_res");
+  auto join_res_sym = cg.GetSymbol("join_res");
   auto rate = E.MakeExpr(rate_sym);
   auto select_res = E.MakeExpr(select_res_sym);
+  auto join_res = E.MakeExpr(join_res_sym);
   main_fn.Declare(rate_sym, E.FloatLiteral(37.77));
   main_fn.Declare(select_res_sym, E.Call(E.MakeExpr(select_sym), {E.IntLiteral(37)}, T.GetType(gen::PrimType::I64)));
-  main_fn.Return(E.IMul(E.FetchValue(select_res_sym, 0, 0), main_arg));
+  main_fn.Declare(join_res_sym, E.Call(E.MakeExpr(join_sym), {}, T.GetType(gen::PrimType::I64)));
+  main_fn.Return(E.IMul(E.FetchValue(select_res_sym, 0, 0), E.FetchValue(join_res_sym, 0, 0)));
 
   auto main_node = main_fn.Finish();
   auto select_node = select_fn.Finish();
