@@ -20,6 +20,8 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "mlir/Passes.h"
+
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
@@ -39,7 +41,7 @@ void DumpMLIR(std::vector<const gen::Node*> & nodes) {
   mlirgen::MLIRGen mlir_gen(context);
   mlir::OwningModuleRef module = mlir_gen.mlirGen(nodes);
 
-    module->dump();
+  module->dump();
 
 
   mlir::PassManager pm(&context);
@@ -50,17 +52,10 @@ void DumpMLIR(std::vector<const gen::Node*> & nodes) {
   pm.addPass(mlir::createInlinerPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createCSEPass());
-  pm.addPass(mlir::createInlinerPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createCSEPass());
   pm.addPass(mlir::createLoopInvariantCodeMotionPass());
+  pm.addPass(mlir::sqlir::createShapeInferencePass());
+  pm.addPass(mlir::createCanonicalizerPass());
 
-  // Now that there is only one function, we can infer the shapes of each of
-  // the operations.
-  // mlir::OpPassManager &optPM = pm.nest<mlir::FuncOp>();
-  // optPM.addPass(mlir::toy::createShapeInferencePass());
-  // optPM.addPass(mlir::createCanonicalizerPass());
-  // optPM.addPass(mlir::createCSEPass());
   pm.run(*module);
   module->dump();
 }
@@ -119,12 +114,12 @@ int main() {
   auto const_col =E.IMul(table_id, table_id);
 
 
-  auto col1_less_col2= E.Lt(col1, col2);
+  auto col1_less_col2 = E.Lt(col1_sum_col2, col2);
   auto col1_greater_col2= E.Gt(col1, col2);
-  auto const_comp = E.Lt(E.IntLiteral(37), E.IntLiteral(73));
+  auto const_comp = E.Gt(E.IntLiteral(37), E.IntLiteral(73));
 
   std::vector<const gen::Expr *> select_projection_expressions{ const_col, col1_mul_col2};
-  std::vector<const gen::Expr *> select_filter_expressions{ col1_less_col2, col1_greater_col2 };
+  std::vector<const gen::Expr *> select_filter_expressions{ col1_less_col2, col1_greater_col2, const_comp };
 
 
   auto sel = E.Select(std::move(select_column_ids),

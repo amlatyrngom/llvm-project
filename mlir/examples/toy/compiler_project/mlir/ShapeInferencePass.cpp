@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <unordered_map>
 #include "mlir/Pass/Pass.h"
 #include "mlir/Dialect.h"
 #include "mlir/Passes.h"
@@ -22,10 +23,11 @@
 #define DEBUG_TYPE "shape-inference"
 
 using namespace mlir;
-using namespace toy;
+using namespace sqlir;
 
 /// Include the auto-generated definitions for the shape inference interfaces.
 #include "mlir/ShapeInferenceOpInterfaces.cpp.inc"
+#include "mlir/MLIRGen.h"
 
 namespace {
 /// The ShapeInferencePass is a FunctionPass that performs intra-procedural
@@ -46,67 +48,192 @@ namespace {
 ///
 class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
 public:
+
+  bool IsSelectInvariant(Operation *op, function_ref<bool(Value)> definedOutside) {
+    // Check that dependencies are defined outside of loop.
+    llvm::outs() << "CHECKING: " << *op << "\n";
+    if (!llvm::all_of(op->getOperands(), definedOutside))
+      return false;
+    llvm::outs() << "DONE\n";
+
+    if (auto memInterface = dyn_cast<MemoryEffectOpInterface>(op)) {
+      if (!memInterface.hasNoEffect())
+        return false;
+      // If the operation doesn't have side effects and it doesn't recursively
+      // have side effects, it can always be hoisted.
+      if (!op->hasTrait<OpTrait::HasRecursiveSideEffects>())
+        return true;
+
+      // Otherwise, if the operation doesn't provide the memory effect interface
+      // and it doesn't have recursive side effects we treat it conservatively as
+      // side-effecting.
+    } else if (!op->hasTrait<OpTrait::HasRecursiveSideEffects>()) {
+      return false;
+    }
+    return true;
+  }
+
+
   void runOnFunction() override {
-  //   auto f = getFunction();
+    auto f = getFunction();
 
-  //   // Populate the worklist with the operations that need shape inference:
-  //   // these are operations that return a dynamic shape.
-  //   llvm::SmallPtrSet<mlir::Operation *, 16> opWorklist;
-  //   f.walk([&](mlir::Operation *op) {
-  //     if (returnsDynamicShape(op))
-  //       opWorklist.insert(op);
-  //   });
+    OpBuilder builder(f);
 
-  //   // Iterate on the operations in the worklist until all operations have been
-  //   // inferred or no change happened (fix point).
-  //   while (!opWorklist.empty()) {
-  //     // Find the next operation ready for inference, that is an operation
-  //     // with all operands already resolved (non-generic).
-  //     auto nextop = llvm::find_if(opWorklist, allOperandsInferred);
-  //     if (nextop == opWorklist.end())
-  //       break;
+    Block* pre_block = nullptr;
+    Block* start_block = nullptr;
+    std::vector<Block*> filter_blocks;
+    std::unordered_map<Block*, double> filter_ranks;
+    Block* project_block = nullptr;
+    Block* exit_block = nullptr;
 
-  //     Operation *op = *nextop;
-  //     opWorklist.erase(op);
+    // Gather function arguments.
+    SmallPtrSet<Value, 8> args;
+    for (auto &arg : f.getArguments()) {
+      args.insert(arg);
+    }
 
-  //     // Ask the operation to infer its output shapes.
-  //     LLVM_DEBUG(llvm::dbgs() << "Inferring shape for: " << *op << "\n");
-  //     if (auto shapeOp = dyn_cast<ShapeInference>(op)) {
-  //       shapeOp.inferShapes();
-  //     } else {
-  //       op->emitError("unable to infer shape of operation without shape "
-  //                     "inference interface");
-  //       return signalPassFailure();
-  //     }
-  //   }
+    // Helper to check whether an operation is loop invariant wrt. SSA properties.
+    SmallPtrSet<Operation *, 8> willBeMovedSet;
+    SmallVector<Operation *, 8> opsToMove;
+    auto isDefinedOutsideOfBody = [&](Value value) {
+      auto definingOp = value.getDefiningOp();
+      // Function arguments are always outside the loop.
+      if (!!args.count(value)) {
+        return true;
+      }
+      // Don't know what this means.
+      if (definingOp == nullptr) {
+        return false;
+      }
+      // Operand Already moved.
+      if (!!willBeMovedSet.count(definingOp)) {
+        return true;
+      }
 
-  //   // If the operation worklist isn't empty, this indicates a failure.
-  //   if (!opWorklist.empty()) {
-  //     f.emitError("Shape inference failed, ")
-  //         << opWorklist.size() << " operations couldn't be inferred\n";
-  //     signalPassFailure();
-  //   }
-  // }
+      // Check if defined outside select body.
+      auto parent_block = definingOp->getBlock();
+      if (parent_block == start_block || parent_block == project_block) {
+        return false;
+      }
+      for (const auto& filter_block: filter_blocks) {
+        if (parent_block == filter_block) return false;
+      }
+      return true;
+    };
 
-  // /// A utility method that returns if the given operation has all of its
-  // /// operands inferred.
-  // static bool allOperandsInferred(Operation *op) {
-  //   return llvm::all_of(op->getOperandTypes(), [](Type operandType) {
-  //     return operandType.isa<RankedTensorType>();
-  //   });
-  // }
+    auto findInvariants = [&](Block* block) {
+      for (Operation &op : block->without_terminator()) {
+        if (IsSelectInvariant(&op, isDefinedOutsideOfBody)) {
+          opsToMove.push_back(&op);
+          willBeMovedSet.insert(&op);
+        }
+      }
+    };
 
-  // /// A utility method that returns if the given operation has a dynamically
-  // /// shaped result.
-  // static bool returnsDynamicShape(Operation *op) {
-  //   return llvm::any_of(op->getResultTypes(), [](Type resultType) {
-  //     return !resultType.isa<RankedTensorType>();
-  //   });
+
+    for (Block &block : f) {
+      if (pre_block == nullptr) pre_block = &block;
+      for (Operation &op : llvm::make_early_inc_range(block)) {
+        if (isa<TableNextOp>(op)) {
+          start_block = &block;
+        }
+        if (isa<FillResultOp>(op)) {
+          project_block = &block;
+        }
+      }
+      if (isa<mlir::ReturnOp>(block.getTerminator())) {
+        exit_block = &block;
+      }
+      if (start_block != nullptr && &block != project_block && &block != start_block) {
+        if (!isa<mlir::ReturnOp>(block.getTerminator())) {
+          filter_blocks.emplace_back(&block);
+        }
+      }
+    }
+
+    // Not a select function
+    if (start_block == nullptr) return;
+    // Impossible filters
+    if (project_block == nullptr) {
+      auto curr_term = pre_block->getTerminator();
+      builder.setInsertionPointToEnd(pre_block);
+      builder.create<mlir::BranchOp>(curr_term->getLoc(), exit_block);
+      curr_term->erase();
+      return;
+    }
+    // No filters
+    if (filter_blocks.empty()) return;
+
+
+    // Rank the filters.
+    for (const auto& filter_block: filter_blocks) {
+      filter_ranks.emplace(filter_block, EstimateRank(filter_block));
+    }
+    // Reorder
+    std::sort(filter_blocks.begin(), filter_blocks.end(), [&](const auto& b1, const auto& b2) {
+      return filter_ranks[b1] > filter_ranks[b2];
+    });
+
+    // Change jump targets.
+    // Target of start block.
+    {
+      builder.setInsertionPointToEnd(start_block);
+      auto term = start_block->getTerminator();
+      llvm::outs() << "Start Terminator: " << *term << "\n";
+      if (isa<mlir::CondBranchOp>(*term)) {
+        auto branch_inst = dyn_cast<mlir::CondBranchOp>(*term);
+        llvm::outs() << "Start Branch: " << *branch_inst << "\n";
+        auto false_dest = branch_inst.getFalseDest();
+        auto cond = branch_inst.getCondition();
+        builder.create<mlir::CondBranchOp>(branch_inst.getLoc(), cond, filter_blocks[0], false_dest);
+        branch_inst.erase();
+      }
+    }
+
+    // Change filter targets
+    {
+      for (uint32_t i = 0; i < filter_blocks.size(); i++) {
+        auto curr_block = filter_blocks[i];
+        builder.setInsertionPointToEnd(curr_block);
+        auto term = curr_block->getTerminator();
+        if (isa<mlir::CondBranchOp>(*term)) {
+          auto branch_inst = dyn_cast<mlir::CondBranchOp>(*term);
+          auto false_dest = branch_inst.getFalseDest();
+          auto true_dest = (i == filter_blocks.size() - 1) ? project_block : filter_blocks[i+1];
+          auto cond = branch_inst.getCondition();
+          builder.create<mlir::CondBranchOp>(branch_inst.getLoc(), cond, true_dest, false_dest);
+          branch_inst.erase();
+        }
+      }
+    }
+
+    // Find the invariants.
+    findInvariants(start_block);
+    findInvariants(project_block);
+    for (auto& filter_block: filter_blocks) {
+      findInvariants(filter_block);
+    }
+
+    // Now move out
+    for (const auto& op: opsToMove) {
+      op->moveBefore(pre_block->getTerminator());
+    }
+  }
+
+ private:
+  double EstimateRank(Block* block) {
+    uint32_t num_insts_{0};
+    block->walk([&](mlir::Operation *op) {
+      // TODO: estimate cost of op.
+      // TODO: If op is terminate, estimate selectivity.
+      num_insts_++;
+    });
+    return 1.0 / num_insts_;
   }
 };
 } // end anonymous namespace
 
 /// Create a Shape Inference pass.
-std::unique_ptr<mlir::Pass> mlir::toy::createShapeInferencePass() {
+std::unique_ptr<mlir::Pass> mlir::sqlir::createShapeInferencePass() {
   return std::make_unique<ShapeInferencePass>();
 }

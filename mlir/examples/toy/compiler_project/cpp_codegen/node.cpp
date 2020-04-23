@@ -60,7 +60,8 @@ void Function::Visit(mlirgen::MLIRGen* mlir_gen) const {
   }
   auto ret_type = ret_type_->Visit(mlir_gen);
   auto func_type = mlir_gen->Builder()->getFunctionType(arg_types, ret_type);
-  auto function = mlir::FuncOp::create(mlir_gen->Loc(), name_.ident_, func_type);
+  ArrayRef<NamedAttribute> attrs{std::make_pair(mlir_gen->Builder()->getIdentifier("IsSelect"), mlir_gen->Builder()->getBoolAttr(is_select_function_))};
+  auto function = mlir::FuncOp::create(mlir_gen->Loc(), name_.ident_, func_type, attrs);
   if (!function) {
     std::cout << "Cannot create function proto" << std::endl;
     abort();

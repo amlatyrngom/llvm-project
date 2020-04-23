@@ -17,7 +17,7 @@
 #include "mlir/IR/OpDefinition.h"
 
 namespace mlir {
-namespace toy {
+namespace sqlir {
 
 /// Include the auto-generated declarations.
 #include "mlir/ShapeInferenceOpInterfaces.h.inc"

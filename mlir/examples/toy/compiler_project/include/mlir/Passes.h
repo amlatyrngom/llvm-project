@@ -18,7 +18,7 @@
 namespace mlir {
 class Pass;
 
-namespace toy {
+namespace sqlir {
 std::unique_ptr<Pass> createShapeInferencePass();
 } // end namespace toy
 } // end namespace mlir

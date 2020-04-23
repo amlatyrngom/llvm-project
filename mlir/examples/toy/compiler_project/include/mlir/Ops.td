@@ -35,7 +35,7 @@ class SQLIR_Op<string mnemonic, list<OpTrait> traits = []> :
 // SQLIR Operations
 //===----------------------------------------------------------------------===//
 
-def GetColumnOp : SQLIR_Op<"GetColumn", [NoSideEffect]> {
+def GetColumnOp : SQLIR_Op<"GetColumn"> {
   let summary = "getcolumn operation";
   let description = [{
     The "GetColumn" builtin operation prints a given input tableid and columnid, and produces
@@ -49,7 +49,7 @@ def GetColumnOp : SQLIR_Op<"GetColumn", [NoSideEffect]> {
   let assemblyFormat = "$lhs `,` $rhs attr-dict `:` functional-type(operands, results)";
 }
 
-def TableNextOp : SQLIR_Op<"TableNext", [NoSideEffect]> {
+def TableNextOp : SQLIR_Op<"TableNext"> {
   let summary = "hasnext operation";
   let description = [{
     The "TableNextOp" builtin op.
