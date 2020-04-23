@@ -109,14 +109,14 @@ int main() {
   std::vector<uint64_t> select_column_ids{1,2};
   auto col1 = E.ColumnId(1, 37);
   auto col2 = E.ColumnId(2, 37);
-  auto col1_mul_col2= E.IMul(col1, col2);
-  auto col1_sum_col2= E.IAdd(col1, col2);
-  auto const_col =E.IMul(table_id, table_id);
+  auto col1_mul_col2 = E.IMul(col1, col2);
+  auto col1_sum_col2 = E.IAdd(col1, col2);
+  auto const_col = E.IMul(table_id, table_id);
 
 
   auto col1_less_col2 = E.Lt(col1_sum_col2, col2);
   auto col1_greater_col2= E.Gt(col1, col2);
-  auto const_comp = E.Gt(E.IntLiteral(37), E.IntLiteral(73));
+  auto const_comp = E.Lt(E.IntLiteral(37), E.IntLiteral(73));
 
   std::vector<const gen::Expr *> select_projection_expressions{ const_col, col1_mul_col2};
   std::vector<const gen::Expr *> select_filter_expressions{ col1_less_col2, col1_greater_col2, const_comp };
@@ -127,7 +127,7 @@ int main() {
            std::move(select_filter_expressions),
            37);
   select_fn.Add(sel);
-  select_fn.Return(E.IntLiteral(10000));
+  //select_fn.Return(E.IntLiteral(10000));
 
   // Get Rate
   auto rate_sym = cg.GetSymbol("rate");

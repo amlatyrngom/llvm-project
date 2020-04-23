@@ -72,6 +72,10 @@ mlir::Value ColumnIdExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
 mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   auto curr_block = mlir_gen->Builder()->getBlock();
   auto parent = curr_block->getParent();
+  // First allocate a temp table.
+  auto temp_table_id = mlir_gen->Builder()->create<mlir::sqlir::NewTempTableOp>(mlir_gen->Loc(), mlir_gen->Builder()->getIntegerType(64));
+
+
   auto top_block = mlir_gen->Builder()->createBlock(parent, parent->end());
   auto exit_block = mlir_gen->Builder()->createBlock(parent, parent->end());
   // Jump into this new block.
@@ -122,13 +126,14 @@ mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
 
     for(auto projection_expression: projections_) {
       auto expression_variable_mlir = projection_expression->Visit(mlir_gen);
-      mlir_gen->Builder()->create<mlir::sqlir::FillResultOp>(mlir_gen->Loc(), expression_variable_mlir);
+      mlir_gen->Builder()->create<mlir::sqlir::FillResultOp>(mlir_gen->Loc(), expression_variable_mlir, temp_table_id);
     }
     mlir_gen->Builder()->create<mlir::BranchOp>(mlir_gen->Loc(), top_block);
   }
 
   // Exit
   mlir_gen->Builder()->setInsertionPointToEnd(exit_block);
+  mlir_gen->Builder()->create<mlir::ReturnOp>(mlir_gen->Loc(), llvm::makeArrayRef(temp_table_id.getResult()));
   return nullptr;
 }
 

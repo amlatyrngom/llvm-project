@@ -62,6 +62,18 @@ def TableNextOp : SQLIR_Op<"TableNext"> {
   let assemblyFormat = "$input attr-dict `:` functional-type(operands, results)";
 }
 
+def NewTempTableOp : SQLIR_Op<"NewTempTable"> {
+  let summary = "new temp table operation";
+  let description = [{
+  The "NewTempTable" builtin op.
+  }];
+
+  let arguments = (ins);
+  let results = (outs I64:$res);
+
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
+}
+
 def FillResultOp : SQLIR_Op<"FillResult"> {
   let summary = "fill result operation";
   let description = [{
@@ -70,9 +82,9 @@ def FillResultOp : SQLIR_Op<"FillResult"> {
   }];
 
   // The print operation takes an input tensor to print.
-  let arguments = (ins SignlessIntegerLike:$input);
+  let arguments = (ins SignlessIntegerLike:$input, SignlessIntegerLike:$temp);
 
-  let assemblyFormat = "$input attr-dict `:` type($input)";
+  let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
 def PrintOp : SQLIR_Op<"print"> {
