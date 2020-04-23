@@ -135,7 +135,7 @@ int main() {
   //select_fn.Return(E.IntLiteral(10000));
 
   // Create Join Expression
-  std::vector<uint64_t> join_table_ids{1,2,3};
+  std::vector<uint64_t> join_table_ids{1,2,3,4,5,6,7};
   auto join = E.Join(std::move(join_table_ids));
   join_fn.Add(join);
 
