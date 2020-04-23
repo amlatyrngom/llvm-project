@@ -49,6 +49,20 @@ def GetColumnOp : SQLIR_Op<"GetColumn"> {
   let assemblyFormat = "$lhs `,` $rhs attr-dict `:` functional-type(operands, results)";
 }
 
+def JoinOp : SQLIR_Op<"Join"> {
+  let summary = "join operation";
+  let description = [{
+    The "Join" builtin operation takes table_id of two tables and returns table oid of a temp
+    table representing the "Natural Join" of the input tables
+  }];
+
+  // The print operation takes an input tensor to print.
+  let arguments = (ins SignlessIntegerLike:$lhs, SignlessIntegerLike:$rhs);
+  let results = (outs SignlessIntegerLike:$res);
+
+  let assemblyFormat = "$lhs `,` $rhs attr-dict `:` functional-type(operands, results)";
+}
+
 def TableNextOp : SQLIR_Op<"TableNext"> {
   let summary = "hasnext operation";
   let description = [{

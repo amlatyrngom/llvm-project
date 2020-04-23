@@ -57,7 +57,7 @@ enum class ExprType : int {
   ColumnId,
 
   // Select
-  Select,
+  Select, Join
 };
 
 // Generic expression
@@ -194,6 +194,20 @@ class SelectExpr : public Expr {
   std::vector<const Expr*> projections_;
   std::vector<const Expr*> filters_;
   uint64_t table_id_{37};
+};
+
+class JoinExpr : public Expr {
+public:
+  // Integer literal
+  JoinExpr(std::vector<uint64_t> &&tableids) : Expr(ExprType::Join, {}),
+                                  table_ids_(std::move(tableids))
+                                   {}
+
+  void Visit(std::ostream *os) const override {};
+  virtual mlir::Value Visit(mlirgen::MLIRGen *mlir_gen) const override;
+
+private:
+  std::vector<uint64_t> table_ids_;
 };
 
 // An assignment or compound assignment.

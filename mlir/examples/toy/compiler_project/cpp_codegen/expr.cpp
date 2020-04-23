@@ -137,6 +137,41 @@ mlir::Value SelectExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   return nullptr;
 }
 
+mlir::Value JoinExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
+  auto curr_block = mlir_gen->Builder()->getBlock();
+
+  mlir::Value temp_table_id;
+  for(unsigned i = 1; i<table_ids_.size(); i++) {
+
+    // Codegen the operands first.
+    SmallVector<mlir::Value, 2> operands;
+
+    if(i == 1) {
+      auto mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(table_ids_[0]);
+      auto arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
+      operands.push_back(arg);
+
+      mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(table_ids_[1]);
+      arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
+      operands.push_back(arg);
+
+    } else {
+      auto mlir_attr = mlir_gen->Builder()->getI64IntegerAttr(table_ids_[i]);
+      auto arg = mlir_gen->Builder()->create<ConstantOp>(mlir_gen->Loc(), mlir_attr.getType(), mlir_attr);
+      operands.push_back(arg);
+      operands.push_back(temp_table_id);
+    }
+
+    /*Create join op*/
+    auto op = mlir_gen->Builder()->create<mlir::sqlir::JoinOp>(mlir_gen->Loc(), operands[0].getType(), operands[0], operands[1]);
+    temp_table_id = op.getResult();
+  }
+
+  return nullptr;
+}
+
+
+
 mlir::Value IdentExpr::Visit(mlirgen::MLIRGen* mlir_gen) const {
   if (auto variable = mlir_gen->SymTable()->lookup(symbol_.ident_))
     return variable;

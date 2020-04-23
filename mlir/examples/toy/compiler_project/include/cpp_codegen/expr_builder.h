@@ -69,6 +69,14 @@ class ExprBuilder {
                                                     table_id));
   }
 
+  /////////////////////////////////////////////
+  //// Join
+  ////////////////////////////////////////////
+
+  const Expr *Join(std::vector<uint64_t> &&table_ids) {
+    return cg_->AddExpr(std::make_unique<JoinExpr>(std::move(table_ids)));
+  }
+
   //////////////////////////////////////////
   /// Object access & calls
   //////////////////////////////////////////
